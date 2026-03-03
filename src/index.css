@@ -1,0 +1,73 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* VerticalLOL Design Tokens — merge this into your existing index.css */
+@layer base {
+  :root {
+    --background: #F2F3F0;
+    --foreground: #111111;
+    --card: #FFFFFF;
+    --card-foreground: #111111;
+    --primary: #FF8400;
+    --primary-foreground: #111111;
+    --secondary: #E7E8E5;
+    --secondary-foreground: #111111;
+    --muted: #F2F3F0;
+    --muted-foreground: #666666;
+    --border: #CBCCC9;
+    --input: #CBCCC9;
+    --ring: #666666;
+    --accent: #F2F3F0;
+    --accent-foreground: #111111;
+    --destructive: #D93C15;
+    --color-info: #DFDFE6;
+    --color-info-foreground: #000066;
+    --color-success: #DFE6E1;
+    --color-success-foreground: #004D1A;
+    --color-warning: #E9E3D8;
+    --color-warning-foreground: #804200;
+    --color-error: #E5DCDA;
+    --color-error-foreground: #8C1C00;
+    --radius-m: 16px;
+    --radius-pill: 999px;
+  }
+
+  .dark {
+    --background: #111111;
+    --foreground: #FFFFFF;
+    --card: #1A1A1A;
+    --card-foreground: #FFFFFF;
+    --primary: #FF8400;
+    --primary-foreground: #111111;
+    --secondary: #2E2E2E;
+    --secondary-foreground: #FFFFFF;
+    --muted: #2E2E2E;
+    --muted-foreground: #B8B9B6;
+    --border: #2E2E2E;
+    --input: #2E2E2E;
+    --ring: #666666;
+    --color-info: #222229;
+    --color-info-foreground: #B2B2FF;
+  }
+
+  html,
+  body {
+    height: 100%;
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+  }
+}
+
+@layer utilities {
+  .font-jetbrains {
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .font-geist {
+    font-family: 'Geist', 'Inter', sans-serif;
+  }
+}
