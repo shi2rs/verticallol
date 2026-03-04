@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Code, TrendingUp, BookOpen, HeartPulse, Scale, Music, type LucideIcon } from 'lucide-react';
+import { Code, TrendingUp, BookOpen, HeartPulse, Scale, Music, Search, X, type LucideIcon } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Navbar } from '@/components/Navbar';
 import { supabase } from '@/lib/supabase';
@@ -16,7 +16,6 @@ import {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-// Local icon map keyed by vertical slug (UI concern, not stored in DB)
 const VERTICAL_ICONS: Record<string, LucideIcon> = {
   software:   Code,
   finance:    TrendingUp,
@@ -25,7 +24,6 @@ const VERTICAL_ICONS: Record<string, LucideIcon> = {
   legal:      Scale,
 };
 
-// Badge color per vertical slug
 type TagVariant = 'secondary' | 'orange' | 'violet' | 'success';
 const VERTICAL_VARIANT: Record<string, TagVariant> = {
   software:   'secondary',
@@ -80,7 +78,6 @@ function ContentCardItem({ card }: { card: ContentItem }) {
       onClick={() => navigate(`/content/${card.id}`)}
     >
       <div className="flex flex-col gap-3 p-5">
-        {/* Title */}
         <h3
           className="text-base font-semibold leading-snug"
           style={{ fontFamily: 'JetBrains Mono, monospace', color: 'var(--foreground)' }}
@@ -88,33 +85,24 @@ function ContentCardItem({ card }: { card: ContentItem }) {
           {card.title}
         </h3>
 
-        {/* Original Song */}
         {originalSong && (
           <div className="flex items-center gap-1.5">
             <Music size={12} style={{ color: 'var(--muted-foreground)' }} />
-            <span
-              className="text-xs"
-              style={{ fontFamily: 'Geist, Inter, sans-serif', color: 'var(--muted-foreground)' }}
-            >
+            <span className="text-xs" style={{ fontFamily: 'Geist, Inter, sans-serif', color: 'var(--muted-foreground)' }}>
               {originalSong}
             </span>
           </div>
         )}
 
-        {/* Tags */}
         <div className="flex items-center gap-1.5 flex-wrap">
           {card.vertical && (
-            <TagBadge
-              label={card.vertical.name}
-              variant={VERTICAL_VARIANT[vertSlug] ?? 'secondary'}
-            />
+            <TagBadge label={card.vertical.name} variant={VERTICAL_VARIANT[vertSlug] ?? 'secondary'} />
           )}
           {card.theme && (
             <TagBadge label={card.theme.name} variant="orange" />
           )}
         </div>
 
-        {/* Reactions + Contributor */}
         <div className="flex items-center justify-between w-full">
           <div className="flex items-center gap-2.5">
             {(Object.entries(rxCounts) as [ReactionType, number][])
@@ -122,10 +110,7 @@ function ContentCardItem({ card }: { card: ContentItem }) {
               .map(([type, count]) => (
                 <div key={type} className="flex items-center gap-1">
                   <span className="text-sm">{REACTION_META[type].emoji}</span>
-                  <span
-                    className="text-xs font-medium"
-                    style={{ fontFamily: 'Geist, Inter, sans-serif', color: 'var(--muted-foreground)' }}
-                  >
+                  <span className="text-xs font-medium" style={{ fontFamily: 'Geist, Inter, sans-serif', color: 'var(--muted-foreground)' }}>
                     {count}
                   </span>
                 </div>
@@ -135,17 +120,11 @@ function ContentCardItem({ card }: { card: ContentItem }) {
           {card.contributor && (
             <div className="flex items-center gap-1.5">
               <Avatar className="w-5 h-5">
-                <AvatarFallback
-                  className="text-[8px] font-medium"
-                  style={{ backgroundColor: 'var(--secondary)', color: 'var(--foreground)' }}
-                >
+                <AvatarFallback className="text-[8px] font-medium" style={{ backgroundColor: 'var(--secondary)', color: 'var(--foreground)' }}>
                   {getInitials(card.contributor.display_name)}
                 </AvatarFallback>
               </Avatar>
-              <span
-                className="text-xs"
-                style={{ fontFamily: 'Geist, Inter, sans-serif', color: 'var(--muted-foreground)' }}
-              >
+              <span className="text-xs" style={{ fontFamily: 'Geist, Inter, sans-serif', color: 'var(--muted-foreground)' }}>
                 {card.contributor.display_name}
               </span>
             </div>
@@ -162,25 +141,32 @@ export default function HomePage() {
   const [verticals,      setVerticals]     = useState<Vertical[]>([]);
   const [activeVertical, setActiveVertical] = useState<string>('all');
   const [activeTheme,    setActiveTheme]    = useState<string | null>(null);
+  const [searchInput,    setSearchInput]    = useState('');
+  const [searchQuery,    setSearchQuery]    = useState('');   // debounced
   const [items,          setItems]          = useState<ContentItem[]>([]);
   const [loading,        setLoading]        = useState(true);
   const [error,          setError]          = useState<string | null>(null);
 
-  // ── Fetch verticals + their themes once on mount ───────────────────────────
+  // ── Debounce search input (300ms) ─────────────────────────────────────────
+  useEffect(() => {
+    const t = setTimeout(() => setSearchQuery(searchInput.trim()), 300);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  // ── Fetch verticals + themes once ─────────────────────────────────────────
   useEffect(() => {
     async function fetchVerticals() {
       const { data, error } = await supabase
         .from('verticals')
         .select('id, slug, name, icon, themes(id, slug, name)')
         .order('name');
-
       if (error) { setError(error.message); return; }
       setVerticals((data ?? []) as Vertical[]);
     }
     fetchVerticals();
   }, []);
 
-  // ── Fetch content items whenever filters change ────────────────────────────
+  // ── Fetch content items whenever filters or search change ──────────────────
   useEffect(() => {
     async function fetchItems() {
       setLoading(true);
@@ -197,26 +183,30 @@ export default function HomePage() {
         `)
         .eq('status', 'published')
         .order('published_at', { ascending: false })
-        .limit(18);
+        .limit(36);
 
+      // Vertical filter
       if (activeVertical !== 'all') {
         const vert = verticals.find((v) => v.slug === activeVertical);
         if (vert) query = query.eq('vertical_id', vert.id);
       }
 
+      // Theme filter
       if (activeTheme) {
-        // find theme id across all verticals
-        const theme = verticals
-          .flatMap((v) => v.themes ?? [])
-          .find((t) => t.slug === activeTheme);
+        const theme = verticals.flatMap((v) => v.themes ?? []).find((t) => t.slug === activeTheme);
         if (theme) query = query.eq('theme_id', theme.id);
+      }
+
+      // Search filter — matches title or body_text
+      if (searchQuery.length >= 2) {
+        query = query.or(`title.ilike.%${searchQuery}%,body_text.ilike.%${searchQuery}%`);
       }
 
       const { data: rawItems, error: itemsErr } = await query;
       if (itemsErr) { setError(itemsErr.message); setLoading(false); return; }
       if (!rawItems?.length) { setItems([]); setLoading(false); return; }
 
-      // Fetch contributor profiles (separate query — FK is to auth.users, not profiles)
+      // Enrich with contributor profiles
       const contributorIds = [...new Set(rawItems.map((i) => i.contributor_id))];
       const { data: profiles } = await supabase
         .from('profiles')
@@ -224,92 +214,117 @@ export default function HomePage() {
         .in('id', contributorIds);
 
       const profileMap = Object.fromEntries((profiles ?? []).map((p) => [p.id, p]));
-
-      const enriched = rawItems.map((item) => ({
-        ...item,
-        contributor: profileMap[item.contributor_id] ?? null,
-      })) as ContentItem[];
-
-      setItems(enriched);
+      setItems(rawItems.map((item) => ({ ...item, contributor: profileMap[item.contributor_id] ?? null })) as ContentItem[]);
       setLoading(false);
     }
 
-    // Only run after verticals have loaded (need IDs for filtering)
     if (verticals.length > 0 || activeVertical === 'all') {
       fetchItems();
     }
-  }, [activeVertical, activeTheme, verticals]);
+  }, [activeVertical, activeTheme, searchQuery, verticals]);
 
-  // ── Derived: themes for the active vertical ────────────────────────────────
   const visibleThemes: Theme[] =
     activeVertical === 'all'
       ? verticals.flatMap((v) => v.themes ?? [])
       : (verticals.find((v) => v.slug === activeVertical)?.themes ?? []);
 
-  // ── 3-column grid ──────────────────────────────────────────────────────────
   const columns: ContentItem[][] = [[], [], []];
   items.forEach((item, i) => columns[i % 3].push(item));
+
+  const isSearching = searchQuery.length >= 2;
+
+  function clearSearch() {
+    setSearchInput('');
+    setSearchQuery('');
+  }
 
   return (
     <div className="flex flex-col min-h-screen w-full" style={{ backgroundColor: 'var(--background)' }}>
       <Navbar activePage="home" />
 
-      {/* Filter Area */}
       <div className="flex flex-col gap-4 px-8 py-6 w-full">
 
-        {/* Vertical Pills */}
-        <div className="flex flex-col gap-3">
-          <span
-            className="text-xs font-medium"
-            style={{ fontFamily: 'JetBrains Mono, monospace', color: 'var(--muted-foreground)' }}
-          >
-            Browse by Vertical
-          </span>
-          <div className="flex items-center gap-2 flex-wrap">
-            {/* All pill */}
+        {/* Search Bar */}
+        <div className="relative w-full" style={{ maxWidth: '480px' }}>
+          <Search
+            size={16}
+            className="absolute left-3 top-1/2 -translate-y-1/2"
+            style={{ color: 'var(--muted-foreground)', pointerEvents: 'none' }}
+          />
+          <input
+            type="text"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Search memes, lyrics, skits..."
+            className="w-full h-10 pl-9 pr-9 text-sm border"
+            style={{
+              fontFamily: 'Geist, Inter, sans-serif',
+              borderRadius: 'var(--radius-pill)',
+              borderColor: isSearching ? 'var(--primary)' : 'var(--border)',
+              backgroundColor: 'var(--card)',
+              color: 'var(--foreground)',
+              outline: 'none',
+            }}
+          />
+          {searchInput && (
             <button
-              onClick={() => { setActiveVertical('all'); setActiveTheme(null); }}
-              className="flex items-center gap-1.5 px-4 py-2 text-[13px] font-semibold transition-colors"
-              style={{
-                fontFamily: 'JetBrains Mono, monospace',
-                borderRadius: 'var(--radius-pill)',
-                backgroundColor: activeVertical === 'all' ? 'var(--primary)' : 'var(--secondary)',
-                color: activeVertical === 'all' ? 'var(--primary-foreground)' : 'var(--foreground)',
-              }}
+              onClick={clearSearch}
+              className="absolute right-3 top-1/2 -translate-y-1/2"
+              style={{ color: 'var(--muted-foreground)' }}
             >
-              All
+              <X size={14} />
             </button>
-
-            {verticals.map((v) => {
-              const Icon = VERTICAL_ICONS[v.slug];
-              const isActive = activeVertical === v.slug;
-              return (
-                <button
-                  key={v.slug}
-                  onClick={() => { setActiveVertical(v.slug); setActiveTheme(null); }}
-                  className="flex items-center gap-1.5 px-4 py-2 text-[13px] font-semibold transition-colors"
-                  style={{
-                    fontFamily: 'Geist, Inter, sans-serif',
-                    borderRadius: 'var(--radius-pill)',
-                    backgroundColor: isActive ? 'var(--primary)' : 'var(--secondary)',
-                    color: isActive ? 'var(--primary-foreground)' : 'var(--foreground)',
-                  }}
-                >
-                  {Icon && <Icon size={14} />}
-                  {v.name}
-                </button>
-              );
-            })}
-          </div>
+          )}
         </div>
 
-        {/* Theme Filter Pills */}
-        {visibleThemes.length > 0 && (
+        {/* Vertical Pills — hidden while searching */}
+        {!isSearching && (
+          <div className="flex flex-col gap-3">
+            <span className="text-xs font-medium" style={{ fontFamily: 'JetBrains Mono, monospace', color: 'var(--muted-foreground)' }}>
+              Browse by Vertical
+            </span>
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={() => { setActiveVertical('all'); setActiveTheme(null); }}
+                className="flex items-center gap-1.5 px-4 py-2 text-[13px] font-semibold transition-colors"
+                style={{
+                  fontFamily: 'JetBrains Mono, monospace',
+                  borderRadius: 'var(--radius-pill)',
+                  backgroundColor: activeVertical === 'all' ? 'var(--primary)' : 'var(--secondary)',
+                  color: activeVertical === 'all' ? 'var(--primary-foreground)' : 'var(--foreground)',
+                }}
+              >
+                All
+              </button>
+
+              {verticals.map((v) => {
+                const Icon = VERTICAL_ICONS[v.slug];
+                const isActive = activeVertical === v.slug;
+                return (
+                  <button
+                    key={v.slug}
+                    onClick={() => { setActiveVertical(v.slug); setActiveTheme(null); }}
+                    className="flex items-center gap-1.5 px-4 py-2 text-[13px] font-semibold transition-colors"
+                    style={{
+                      fontFamily: 'Geist, Inter, sans-serif',
+                      borderRadius: 'var(--radius-pill)',
+                      backgroundColor: isActive ? 'var(--primary)' : 'var(--secondary)',
+                      color: isActive ? 'var(--primary-foreground)' : 'var(--foreground)',
+                    }}
+                  >
+                    {Icon && <Icon size={14} />}
+                    {v.name}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Theme Pills — hidden while searching */}
+        {!isSearching && visibleThemes.length > 0 && (
           <div className="flex items-center gap-2 flex-wrap">
-            <span
-              className="text-[13px] font-medium"
-              style={{ fontFamily: 'Geist, Inter, sans-serif', color: 'var(--muted-foreground)' }}
-            >
+            <span className="text-[13px] font-medium" style={{ fontFamily: 'Geist, Inter, sans-serif', color: 'var(--muted-foreground)' }}>
               Themes:
             </span>
             {visibleThemes.map((theme) => {
@@ -332,24 +347,27 @@ export default function HomePage() {
             })}
           </div>
         )}
+
+        {/* Search result count */}
+        {isSearching && !loading && (
+          <p className="text-sm" style={{ fontFamily: 'Geist, Inter, sans-serif', color: 'var(--muted-foreground)' }}>
+            {items.length === 0
+              ? `No results for "${searchQuery}"`
+              : `${items.length} result${items.length === 1 ? '' : 's'} for "${searchQuery}"`}
+          </p>
+        )}
       </div>
 
       {/* Content Grid */}
       {error ? (
         <p className="px-8 text-sm" style={{ color: 'var(--destructive)' }}>Error: {error}</p>
       ) : loading ? (
-        <p
-          className="px-8 text-sm"
-          style={{ fontFamily: 'Geist, Inter, sans-serif', color: 'var(--muted-foreground)' }}
-        >
-          Loading...
+        <p className="px-8 text-sm" style={{ fontFamily: 'Geist, Inter, sans-serif', color: 'var(--muted-foreground)' }}>
+          {isSearching ? `Searching...` : 'Loading...'}
         </p>
       ) : items.length === 0 ? (
-        <p
-          className="px-8 text-sm"
-          style={{ fontFamily: 'Geist, Inter, sans-serif', color: 'var(--muted-foreground)' }}
-        >
-          No content yet for this filter.
+        <p className="px-8 text-sm" style={{ fontFamily: 'Geist, Inter, sans-serif', color: 'var(--muted-foreground)' }}>
+          {isSearching ? `No results for "${searchQuery}"` : 'No content yet for this filter.'}
         </p>
       ) : (
         <div className="flex gap-5 px-8 pb-8 w-full">
