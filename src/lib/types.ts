@@ -24,7 +24,7 @@ export interface Vertical {
 
 export interface Theme {
   id:          string;
-  vertical_id: string;
+  vertical_id?: string;
   slug:        string;
   name:        string;
 }
@@ -65,7 +65,7 @@ export interface Comment {
   content_item_id: string;
   user_id:         string;
   body:            string;
-  created_at:      string;
+  created_at:      string | null;
   user?:           Pick<Profile, 'id' | 'display_name'> | null;
 }
 

@@ -125,7 +125,7 @@ export default function ContentDetailPage() {
           vertical:verticals(id, slug, name),
           theme:themes(id, slug, name)
         `)
-        .eq('id', id)
+        .eq('id', id!)
         .single();
 
       if (itemErr || !raw) { setError(itemErr?.message ?? 'Not found'); setLoading(false); return; }

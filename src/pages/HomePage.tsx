@@ -175,7 +175,7 @@ export default function HomePage() {
         .order('name');
 
       if (error) { setError(error.message); return; }
-      setVerticals(data ?? []);
+      setVerticals((data ?? []) as Vertical[]);
     }
     fetchVerticals();
   }, []);
@@ -225,10 +225,10 @@ export default function HomePage() {
 
       const profileMap = Object.fromEntries((profiles ?? []).map((p) => [p.id, p]));
 
-      const enriched: ContentItem[] = rawItems.map((item) => ({
+      const enriched = rawItems.map((item) => ({
         ...item,
         contributor: profileMap[item.contributor_id] ?? null,
-      }));
+      })) as ContentItem[];
 
       setItems(enriched);
       setLoading(false);
